@@ -75,7 +75,6 @@ Eingangsbereich von Anbauvereinigungen
         ];
 
     function queryOverpass() {
-	controller.abort();
         const   bounds = map.getBounds(),
                 bLatMin = bounds.getSouth(),
                 bLatMax = bounds.getNorth(),
@@ -86,8 +85,12 @@ Eingangsbereich von Anbauvereinigungen
 
         const query = `https://overpass-api.de/api/interpreter?data=[out%3Ajson][timeout%3A25]%3B(${conditions}%3B)%3Bout%3B%3E%3Bout%20skel%20qt%3B%0A`;
         const newLayerGroup = L.layerGroup();
-				
-        fetch(query, {signal: signal})
+
+	    	if (controller) {
+            controller.abort();
+        }
+        controller = new AbortController();
+        fetch(query, {signal: controller.signal})
             .then(res => res.json()
             ).then(json => {
                 //const ways = [], relations = [];
@@ -122,8 +125,7 @@ Eingangsbereich von Anbauvereinigungen
             });
     }
 
-		const controller = new AbortController();
-    const signal = controller.signal;
+		let controller;
     
 		const map = L.map('map').setView([50, 10], 13);
 	  const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
