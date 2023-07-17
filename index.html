@@ -75,6 +75,7 @@ Eingangsbereich von Anbauvereinigungen
         ];
 
     function queryOverpass() {
+	controller.abort();
         const   bounds = map.getBounds(),
                 bLatMin = bounds.getSouth(),
                 bLatMax = bounds.getNorth(),
@@ -85,7 +86,7 @@ Eingangsbereich von Anbauvereinigungen
 
         const query = `https://overpass-api.de/api/interpreter?data=[out%3Ajson][timeout%3A25]%3B(${conditions}%3B)%3Bout%3B%3E%3Bout%20skel%20qt%3B%0A`;
         const newLayerGroup = L.layerGroup();
-				controller.abort();
+				
         fetch(query, {signal: signal})
             .then(res => res.json()
             ).then(json => {
