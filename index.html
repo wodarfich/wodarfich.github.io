@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<base target="_top">
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	
+	<title>Hier darfst du</title>
+	
+	<link rel="shortcut icon" type="image/x-icon" href="docs/images/favicon.ico" />
+  <link rel="stylesheet" href="leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+	<style>
+		html, body {
+			height: 100%;
+			margin: 0;
+		}
+		#map {
+      width: 100%; 
+      height: 100vh;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+    function get_polygon_centroid(pts) {
+        var first = pts[0], last = pts[pts.length-1];
+        if (first.lat != last.lat || first.lng != last.lng) pts.push(first);
+        var twicearea=0,
+        x=0, y=0,
+        nPts = pts.length,
+        p1, p2, f;
+        for ( var i=0, j=nPts-1 ; i<nPts ; j=i++ ) {
+            p1 = pts[i]; p2 = pts[j];
+            f = (p1.lng - first.lng) * (p2.lat - first.lat) - (p2.lng - first.lng) * (p1.lat - first.lat);
+            twicearea += f;
+            x += (p1.lat + p2.lat - 2 * first.lat) * f;
+            y += (p1.lng + p2.lng - 2 * first.lng) * f;
+        }
+        f = twicearea * 3;
+        return { lat:x/f + first.lat, lng:y/f + first.lng };
+    }
+
+    function addCircle(parent, coords, color) {
+        if (!isNaN(coords.lat) && !isNaN(coords.lng)) {
+            L.circle(coords, {
+                color: color ? color : 'red',
+                fillColor: '#f03',
+                fillOpacity: .5,
+                radius: 200,
+            }).addTo(parent);
+        }
+    }
+
+    function queryOverpass() {
+        const   bounds = map.getBounds(),
+                bLatMin = bounds.getSouth(),
+                bLatMax = bounds.getNorth(),
+                bLngMin = bounds.getWest(),
+                bLngMax = bounds.getEast();
+
+        /*
+        $5 (2):
+        ... Der öffentliche Konsum von Cannabis ist verboten
+1. in und in einem Abstand von bis zu 200 Metern zum Eingangsbereich von Schulen,
+Kinder- und Jugendeinrichtungen, in öffentlich zugänglichen Sportstätten sowie auf und
+in einem Abstand von bis zu 200 Metern zum Eingangsbereich von Kinderspielplätzen,
+2. in Fußgängerzonen zwischen 7 und 20 Uhr sowie
+3. innerhalb des befriedeten Besitztums und in einem Abstand von bis zu 200 Metern zum
+Eingangsbereich von Anbauvereinigungen
+        */
+
+        const conditions = [
+            'node[%22leisure%22%3D%22playground%22]',
+            'way[%22leisure%22%3D%22playground%22]',
+            'relation[%22leisure%22%3D%22playground%22]',
+            'node[%22leisure%22%3D%22pitch%22]',
+            'way[%22leisure%22%3D%22pitch%22]',
+            'relation[%22leisure%22%3D%22pitch%22]',
+            'node[%22amenity%22%3D%22school%22]',
+            'way[%22amenity%22%3D%22school%22]',
+            'relation[%22amenity%22%3D%22school%22]',
+            'node[%22amenity%22%3D%22kindergarten%22]',
+            'way[%22amenity%22%3D%22kindergarten%22]',
+            'relation[%22amenity%22%3D%22kindergarten%22]',
+        ].map(s => `${s}(${bLatMin}%2C${bLngMin}%2C${bLatMax}%2C${bLngMax})`).join('%3B');
+
+        const query = `https://overpass-api.de/api/interpreter?data=[out%3Ajson][timeout%3A25]%3B(${conditions}%3B)%3Bout%3B%3E%3Bout%20skel%20qt%3B%0A`;
+        const newLayerGroup = L.layerGroup();
+        fetch(query)
+            .then(res => res.json()
+            ).then(json => {
+                //const ways = [], relations = [];
+                //const wayNodes = {};
+
+                json.elements.forEach(e => {
+                    if (e.type === 'node') {
+                        const c = {'lat': e.lat, 'lng': e.lon};
+                        //wayNodes[e.id] = c;
+                        addCircle(newLayerGroup, c);
+                    } /*else if (e.type === 'way') {
+                        ways.push(e);
+                    } else {
+                        relations.push(e);
+                    }*/
+                });
+/*
+                ways.forEach(w => {
+                    const points = [];
+                    w.nodes.forEach(n => {
+                        points.push(wayNodes[n]);
+                    });
+                    const centroid = get_polygon_centroid(points);
+                    addCircle(layerGroup, centroid, 'blue');
+                });
+*/
+                if (layerGroup) {
+                    layerGroup.removeFrom(map);
+                }
+                layerGroup = newLayerGroup;
+                layerGroup.addTo(map);
+            });
+    }
+  
+    const map = L.map('map').setView([50, 10], 13);
+	  const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+		  maxZoom: 19,
+  		attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+	  }).addTo(map);
+
+    ['moveend', 'zoomend'].forEach(e => map.on(e, () => queryOverpass()));
+
+    let layerGroup;
+    queryOverpass();
+</script>
+</body>
+</html>
