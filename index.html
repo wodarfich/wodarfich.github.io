@@ -8,8 +8,8 @@
   <script src="leaflet.js" crossorigin=""></script>
 	<style>
 		html, body {
-			height: 100%;
-			margin: 0;
+		height: 100%;
+		margin: 0;
 		}
 		#map {
 		  width: 100%; 
@@ -49,13 +49,6 @@
         }
     }
 
-    function queryOverpass() {
-        const   bounds = map.getBounds(),
-                bLatMin = bounds.getSouth(),
-                bLatMax = bounds.getNorth(),
-                bLngMin = bounds.getWest(),
-                bLngMax = bounds.getEast();
-
         /*
         $5 (2):
         ... Der öffentliche Konsum von Cannabis ist verboten
@@ -66,8 +59,7 @@ in einem Abstand von bis zu 200 Metern zum Eingangsbereich von Kinderspielplätz
 3. innerhalb des befriedeten Besitztums und in einem Abstand von bis zu 200 Metern zum
 Eingangsbereich von Anbauvereinigungen
         */
-
-        const conditions = [
+	const rawConditions = [
             'node[%22leisure%22%3D%22playground%22]',
             'way[%22leisure%22%3D%22playground%22]',
             'relation[%22leisure%22%3D%22playground%22]',
@@ -80,11 +72,21 @@ Eingangsbereich von Anbauvereinigungen
             'node[%22amenity%22%3D%22kindergarten%22]',
             'way[%22amenity%22%3D%22kindergarten%22]',
             'relation[%22amenity%22%3D%22kindergarten%22]',
-        ].map(s => `${s}(${bLatMin}%2C${bLngMin}%2C${bLatMax}%2C${bLngMax})`).join('%3B');
+        ];
+
+    function queryOverpass() {
+        const   bounds = map.getBounds(),
+                bLatMin = bounds.getSouth(),
+                bLatMax = bounds.getNorth(),
+                bLngMin = bounds.getWest(),
+                bLngMax = bounds.getEast();
+
+        const conditions = rawConditions.map(s => `${s}(${bLatMin}%2C${bLngMin}%2C${bLatMax}%2C${bLngMax})`).join('%3B');
 
         const query = `https://overpass-api.de/api/interpreter?data=[out%3Ajson][timeout%3A25]%3B(${conditions}%3B)%3Bout%3B%3E%3Bout%20skel%20qt%3B%0A`;
         const newLayerGroup = L.layerGroup();
-        fetch(query)
+				controller.abort();
+        fetch(query, {signal: signal})
             .then(res => res.json()
             ).then(json => {
                 //const ways = [], relations = [];
@@ -118,8 +120,11 @@ Eingangsbereich von Anbauvereinigungen
                 layerGroup.addTo(map);
             });
     }
-  
-    const map = L.map('map').setView([50, 10], 13);
+
+		const controller = new AbortController();
+    const signal = controller.signal;
+    
+		const map = L.map('map').setView([50, 10], 13);
 	  const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 		  maxZoom: 19,
   		attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
